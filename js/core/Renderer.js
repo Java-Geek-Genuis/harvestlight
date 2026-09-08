@@ -12,11 +12,13 @@ export default class Renderer {
             snow: '#e8f4f8',
             marsh: '#4a5f2f',
             wall: '#654321',
-            floor: '#deb887'
+            floor: '#deb887',
+            tilled_soil: '#6d4c41',
+            crop: '#7cb342'
         };
     }
     
-    renderWorld(ctx, world) {
+    renderWorld(ctx, world, farmingSystem) {
         ctx.fillStyle = this.colors[world.tiles[0]?.[0]?.type] || '#2d5016';
         ctx.fillRect(-1000, -1000, 2000, 2000);
         
@@ -28,6 +30,11 @@ export default class Renderer {
         }
         
         this.renderObjects(ctx, world);
+        
+        if (farmingSystem) {
+            this.renderFarmPlots(ctx, farmingSystem);
+        }
+        
         this.renderBuildings(ctx, world);
     }
     
@@ -41,6 +48,65 @@ export default class Renderer {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(screenX, screenY, this.tileSize, this.tileSize);
+    }
+    
+    renderFarmPlots(ctx, farmingSystem) {
+        const bounds = farmingSystem.getFarmBounds();
+        const plots = farmingSystem.getFarmPlots();
+        
+        plots.forEach(plot => {
+            const screenX = plot.x * this.tileSize;
+            const screenY = plot.y * this.tileSize;
+            
+            if (plot.tilled) {
+                ctx.fillStyle = '#6d4c41';
+                ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(screenX, screenY, this.tileSize, this.tileSize);
+            }
+            
+            if (plot.crop) {
+                this.renderCrop(ctx, screenX, screenY, plot.crop);
+            }
+            
+            if (plot.watered && !plot.crop) {
+                ctx.fillStyle = 'rgba(30, 95, 143, 0.3)';
+                ctx.fillRect(screenX, screenY, this.tileSize, this.tileSize);
+            }
+        });
+    }
+    
+    renderCrop(ctx, x, y, crop) {
+        const growthPercent = (crop.currentStage + 1) / 4;
+        const size = this.tileSize * growthPercent;
+        const offset = (this.tileSize - size) / 2;
+        
+        const colors = {
+            moonbean: '#9b59b6',
+            emberroot: '#e74c3c',
+            honeyturnip: '#f39c12',
+            bluebell_pepper: '#3498db',
+            lantern_melon: '#f1c40f',
+            frostpea: '#ecf0f1',
+            sunburst_squash: '#f39c12',
+            river_rice: '#2ecc71',
+            cloudberry: '#e67e22',
+            copper_carrot: '#d4663c'
+        };
+        
+        ctx.fillStyle = colors[crop.id] || '#7cb342';
+        ctx.beginPath();
+        ctx.ellipse(x + this.tileSize / 2, y + this.tileSize / 2, size / 2, size / 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        if (crop.currentStage >= 2) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.beginPath();
+            ctx.ellipse(x + this.tileSize / 2 - 3, y + this.tileSize / 2 - 3, 3, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
     
     renderObjects(ctx, world) {

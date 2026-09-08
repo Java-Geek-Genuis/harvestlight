@@ -6,6 +6,9 @@ import AssetManager from './core/AssetManager.js';
 import Player from './core/Player.js';
 import World from './core/World.js';
 import LocationManager from './world/LocationManager.js';
+import FarmingSystem from './farming/FarmingSystem.js';
+import Inventory from './farming/Inventory.js';
+import Economy from './economy/Economy.js';
 
 export default class Game {
     constructor() {
@@ -24,6 +27,24 @@ export default class Game {
         this.player = new Player(25, 30);
         this.gameLoop = new GameLoop();
         
+        // Load crops data
+        this.cropsData = [
+            { id: 'moonbean', name: 'Moonbean', seedPrice: 40, growthDays: 5, growthStages: 4, sellPrice: 120 },
+            { id: 'emberroot', name: 'Emberroot', seedPrice: 35, growthDays: 4, growthStages: 3, sellPrice: 100 },
+            { id: 'honeyturnip', name: 'Honeyturnip', seedPrice: 45, growthDays: 6, growthStages: 4, sellPrice: 140 },
+            { id: 'bluebell_pepper', name: 'Bluebell Pepper', seedPrice: 50, growthDays: 7, growthStages: 4, sellPrice: 160 },
+            { id: 'lantern_melon', name: 'Lantern Melon', seedPrice: 60, growthDays: 8, growthStages: 4, sellPrice: 200 },
+            { id: 'frostpea', name: 'Frostpea', seedPrice: 40, growthDays: 5, growthStages: 3, sellPrice: 130 },
+            { id: 'sunburst_squash', name: 'Sunburst Squash', seedPrice: 45, growthDays: 6, growthStages: 4, sellPrice: 150 },
+            { id: 'river_rice', name: 'River Rice', seedPrice: 30, growthDays: 4, growthStages: 3, sellPrice: 80 },
+            { id: 'cloudberry', name: 'Cloudberry', seedPrice: 55, growthDays: 7, growthStages: 4, sellPrice: 180 },
+            { id: 'copper_carrot', name: 'Copper Carrot', seedPrice: 35, growthDays: 4, growthStages: 3, sellPrice: 95 }
+        ];
+        
+        this.farmingSystem = new FarmingSystem(this.cropsData);
+        this.inventory = new Inventory(30);
+        this.economy = new Economy();
+        
         this.gameState = {
             day: 1,
             season: 'bloomtide',
@@ -33,6 +54,12 @@ export default class Game {
             weather: 'sunny',
             paused: false
         };
+        
+        // Add starting seeds and items
+        this.inventory.addItem('moonbean_seed', 5);
+        this.inventory.addItem('river_rice_seed', 5);
+        this.inventory.addItem('wood', 10);
+        this.inventory.addItem('stone', 8);
         
         this.update = this.update.bind(this);
         this.render = this.render.bind(this);
@@ -91,25 +118,54 @@ export default class Game {
             this.player.update(input, this.world, deltaTime);
             this.checkLocationTransitions();
             
+            // Handle farming interactions
             if (input.interact) {
-                const building = this.world.getBuildingAt(
-                    Math.floor(this.player.x),
-                    Math.floor(this.player.y)
-                );
-                if (building && building.hasInterior) {
-                    this.locationManager.enterInterior(building.interior);
-                    this.player.x = 8;
-                    this.player.y = 10;
+                const playerPos = this.player.getTilePosition();
+                const plot = this.farmingSystem.farm.getPlot(playerPos.x, playerPos.y);
+                
+                if (plot) {
+                    if (plot.crop && plot.harvestable) {
+                        const harvest = this.farmingSystem.harvestCrop(playerPos.x, playerPos.y);
+                        if (harvest.success) {
+                            const cropData = this.cropsData.find(c => c.id === harvest.cropId);
+                            this.inventory.addItem(harvest.cropId, 1);
+                            this.gameState.money += cropData.sellPrice * 0.8;
+                        }
+                    } else if (!plot.tilled) {
+                        this.farmingSystem.farm.tillPlot(playerPos.x, playerPos.y);
+                    }
+                } else {
+                    // Check building entry
+                    const building = this.world.getBuildingAt(
+                        Math.floor(this.player.x),
+                        Math.floor(this.player.y)
+                    );
+                    if (building && building.hasInterior) {
+                        this.locationManager.enterInterior(building.interior);
+                        this.player.x = 8;
+                        this.player.y = 10;
+                    }
+                }
+            }
+            
+            // Water crops with W key
+            if (input.water) {
+                const playerPos = this.player.getTilePosition();
+                const plot = this.farmingSystem.farm.getPlot(playerPos.x, playerPos.y);
+                if (plot && plot.tilled && plot.crop) {
+                    this.farmingSystem.farm.waterPlot(playerPos.x, playerPos.y);
                 }
             }
         }
         
         this.camera.follow(this.player.x, this.player.y);
         
+        // Update time and farming
         this.gameState.time += deltaTime * 0.1;
         if (this.gameState.time >= 1440) {
             this.gameState.time = 0;
             this.gameState.day++;
+            this.farmingSystem.updateFarm(this.gameState.season);
         }
         
         if (this.debugMode) {
@@ -151,9 +207,8 @@ export default class Game {
             <div>Money: $${this.gameState.money}</div>
             <div>Location: ${location.name}</div>
             <div>Interior: ${interior}</div>
-            <div>Camera: (${this.camera.x.toFixed(0)}, ${this.camera.y.toFixed(0)})</div>
+            <div>Inventory: ${this.inventory.getSlotCount()}/${this.inventory.maxSlots}</div>
             <div>Buildings: ${this.world.buildings.length}</div>
-            <div>Objects: ${this.world.objects.length}</div>
         `;
     }
     
@@ -172,7 +227,7 @@ export default class Game {
             this.renderer.renderInterior(this.ctx, interior);
             this.renderer.renderPlayer(this.ctx, this.player);
         } else {
-            this.renderer.renderWorld(this.ctx, this.world);
+            this.renderer.renderWorld(this.ctx, this.world, this.farmingSystem);
             this.renderer.renderPlayer(this.ctx, this.player);
         }
         
@@ -188,10 +243,10 @@ export default class Game {
         const staminaPercent = Math.round((this.player.stamina / this.player.maxStamina) * 100);
         
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        this.ctx.fillRect(10, 10, 250, 130);
+        this.ctx.fillRect(10, 10, 300, 140);
         this.ctx.strokeStyle = '#666';
         this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(10, 10, 250, 130);
+        this.ctx.strokeRect(10, 10, 300, 140);
         
         this.ctx.fillStyle = '#fff';
         this.ctx.font = 'bold 14px Arial';
@@ -202,11 +257,11 @@ export default class Game {
         this.ctx.fillText(`Time: ${timeStr}`, 20, 70);
         this.ctx.fillText(`Money: $${this.gameState.money}`, 20, 90);
         this.ctx.fillText(`Stamina: ${staminaPercent}%`, 20, 110);
-        this.ctx.fillText(`[E] Interact`, 20, 130);
+        this.ctx.fillText(`Inventory: ${this.inventory.getSlotCount()}/${this.inventory.maxSlots}`, 20, 130);
         
         const barWidth = 100;
         const barHeight = 8;
-        const barX = 120;
+        const barX = 150;
         const barY = 102;
         
         this.ctx.fillStyle = '#333';
@@ -218,14 +273,15 @@ export default class Game {
         this.ctx.strokeStyle = '#666';
         this.ctx.strokeRect(barX, barY, barWidth, barHeight);
         
+        // Controls
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         this.ctx.font = '10px Arial';
-        this.ctx.fillText('WASD/Arrows: Move | E: Interact | I: Inventory | M: Map | F1: Debug', 10, this.canvas.height - 10);
+        this.ctx.fillText('WASD/Arrows: Move | E: Till/Harvest | W: Water | I: Inventory | M: Map | F1: Debug', 10, this.canvas.height - 10);
     }
     
     start() {
         console.log('Starting HARVESTLIGHT...');
-        console.log('Phase 2: World - Multiple locations, buildings with interiors');
+        console.log('Phase 3: Farming - Crops, soil tilling, watering, harvesting, inventory, and economy');
         this.gameLoop.start(this.update, this.render);
     }
 }

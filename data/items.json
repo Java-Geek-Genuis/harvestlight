@@ -1,0 +1,46 @@
+{
+  "items": [
+    {
+      "id": "wood",
+      "name": "Wood",
+      "type": "material",
+      "sellPrice": 10,
+      "description": "Chopped wood from trees"
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "type": "material",
+      "sellPrice": 8,
+      "description": "Collected stone"
+    },
+    {
+      "id": "fiber",
+      "name": "Fiber",
+      "type": "material",
+      "sellPrice": 5,
+      "description": "Plant fiber from grass"
+    },
+    {
+      "id": "copper_ore",
+      "name": "Copper Ore",
+      "type": "material",
+      "sellPrice": 30,
+      "description": "Raw copper ore"
+    },
+    {
+      "id": "iron_ore",
+      "name": "Iron Ore",
+      "type": "material",
+      "sellPrice": 50,
+      "description": "Raw iron ore"
+    },
+    {
+      "id": "fertilizer",
+      "name": "Fertilizer",
+      "type": "tool",
+      "buyPrice": 20,
+      "description": "Increases crop growth speed"
+    }
+  ]
+}
