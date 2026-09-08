@@ -195,6 +195,29 @@ export default class Renderer {
         });
     }
     
+    renderNPCs(ctx, npcs) {
+        npcs.forEach(npc => {
+            const screenX = npc.x * this.tileSize;
+            const screenY = npc.y * this.tileSize;
+            
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(screenX + 6, screenY + 10, 20, 16);
+            
+            ctx.fillStyle = '#ffdbac';
+            ctx.beginPath();
+            ctx.arc(screenX + 16, screenY + 6, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(screenX + 14, screenY + 4, 2, 2);
+            ctx.fillRect(screenX + 18, screenY + 4, 2, 2);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px Arial';
+            ctx.fillText(npc.name, screenX - 5, screenY - 5);
+        });
+    }
+    
     renderPlayer(ctx, player) {
         const screenX = player.x * this.tileSize;
         const screenY = player.y * this.tileSize;
