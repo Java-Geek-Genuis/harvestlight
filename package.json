@@ -1,0 +1,20 @@
+{
+  "name": "harvestlight",
+  "version": "0.1.0",
+  "description": "An original browser-based farming/life RPG",
+  "main": "js/main.js",
+  "scripts": {
+    "start": "python server.py",
+    "dev": "python server.py --port 8000"
+  },
+  "keywords": [
+    "game",
+    "farming",
+    "rpg",
+    "simulation",
+    "browser"
+  ],
+  "author": "Harvestlight Team",
+  "license": "MIT",
+  "devDependencies": {}
+}
